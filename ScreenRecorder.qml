@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Common
 import qs.Services
 import qs.Widgets
@@ -7,145 +8,189 @@ import qs.Modules.Plugins
 
 PluginComponent {
     id: root
-    layerNamespacePlugin: "screen-recorder"
 
-    property bool isRecording: pluginData.isRecording || false
+    property string fps: pluginData.fps || "60"
+    property string quality: pluginData.quality || "very_high"
+    property bool recordCursor: pluginData.recordCursor !== undefined ? pluginData.recordCursor : true
+    property string outputDir: pluginData.outputDir || ""
     property string captureSource: pluginData.captureSource || "portal"
-    property string outputDir: pluginData.outputDir || "/tmp"
-    property int replaySeconds: pluginData.replaySeconds ?? 0
-    property string replayOutputDir: pluginData.replayOutputDir || "/tmp"
-    property int fps: pluginData.fps ?? 60
-    property string quality: pluginData.quality || "high"
-    property string container: pluginData.container || "mp4"
 
-    function buildOutputPath() {
-        var dir = outputDir.replace(/\/$/, "")
-        var ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
-        return dir + "/recording_" + ts + "." + container
+    property string recordState: "idle"  // idle | recording | paused
+    property int recordTimerSeconds: 0
+    property bool _stopRequested: false
+
+    function _formatTime(totalSeconds) {
+        var m = Math.floor(totalSeconds / 60)
+        var s = totalSeconds % 60
+        return m + ":" + (s < 10 ? "0" + s : s)
+    }
+
+    Timer {
+        id: recordingTimer
+        interval: 1000
+        repeat: true
+        running: root.recordState === "recording"
+        onTriggered: root.recordTimerSeconds += 1
+    }
+
+    onCcWidgetToggled: {
+        if (root.recordState === "idle") {
+            startRecording()
+            if (typeof PopoutService !== "undefined" && PopoutService) PopoutService.closeControlCenter()
+        } else {
+            stopRecording()
+            if (typeof PopoutService !== "undefined" && PopoutService) PopoutService.closeControlCenter()
+        }
+    }
+
+    function togglePause() {
+        if (root.recordState === "idle") return
+        if (root.recordState === "recording") {
+            Quickshell.execDetached(["sh", "-c", "pkill -SIGSTOP -f gpu-screen-recorder"])
+            root.recordState = "paused"
+            ToastService.showInfo("Screen Recorder", "Grabación pausada")
+        } else if (root.recordState === "paused") {
+            Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
+            root.recordState = "recording"
+            ToastService.showInfo("Screen Recorder", "Grabación reanudada")
+        }
     }
 
     function startRecording() {
-        if (root.isRecording) return
-        var outPath = buildOutputPath()
-        var args = ["gpu-screen-recorder", "-w", captureSource, "-o", outPath, "-f", String(fps), "-q", quality, "-c", container]
-        if (replaySeconds > 0) {
-            args.push("-r")
-            args.push(String(replaySeconds))
-            args.push("-ro")
-            args.push(replayOutputDir.replace(/\/$/, ""))
+        if (root.recordState !== "idle") return
+        if (typeof pluginService !== "undefined" && pluginService) {
+            root.fps = pluginService.loadPluginData(pluginId, "fps", "60") || "60"
+            root.quality = pluginService.loadPluginData(pluginId, "quality", "very_high") || "very_high"
+            root.recordCursor = pluginService.loadPluginData(pluginId, "recordCursor", true)
         }
-        var ok = Quickshell.execDetached(args)
-        if (ok) {
-            root.isRecording = true
-            if (pluginService) {
-                pluginService.savePluginData(pluginId, "isRecording", true)
-            }
-            ToastService.showInfo("Screen Recorder", replaySeconds > 0 ? "Replay buffer activo" : "Grabación iniciada")
-        } else {
-            ToastService.showError("Screen Recorder", "No se pudo iniciar gpu-screen-recorder")
-        }
+        var dir = (outputDir || "").replace(/\/$/, "") || "${XDG_VIDEOS_DIR:-$HOME/Videos}/Screencasting"
+        var cursorFlag = root.recordCursor ? "yes" : "no"
+        var script = "DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; FILE=\"$DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4\"; exec gpu-screen-recorder -w " + captureSource + " -f " + root.fps + " -k h264 -ac opus -a default_output -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$FILE\""
+        var proc = recorderProcessComponent.createObject(root, { procCommand: ["sh", "-c", script] })
+        proc.running = true
+        root.recordState = "recording"
+        root.recordTimerSeconds = 0
+        recordingTimer.start()
+        ToastService.showInfo("Screen Recorder", "Selecciona ventana o pantalla en el Portal")
     }
 
     function stopRecording() {
-        if (!root.isRecording) return
-        var ok = Quickshell.execDetached(["pkill", "-SIGUSR1", "-f", "gpu-screen-recorder"])
-        if (ok !== false) {
-            root.isRecording = false
-            if (pluginService) {
-                pluginService.savePluginData(pluginId, "isRecording", false)
+        if (root.recordState === "idle") return
+        root._stopRequested = true
+        if (root.recordState === "paused") {
+            Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
+        }
+        Quickshell.execDetached(["sh", "-c", "sleep 0.2; pkill -SIGINT -f gpu-screen-recorder"])
+        root.recordState = "idle"
+        recordingTimer.stop()
+        root.recordTimerSeconds = 0
+        ToastService.showInfo("Screen Recorder", "Guardado")
+    }
+
+    Component {
+        id: recorderProcessComponent
+        Process {
+            property var procCommand: ["sh", "-c", ""]
+            command: procCommand
+            onExited: function(exitCode) {
+                root.recordState = "idle"
+                recordingTimer.stop()
+                root.recordTimerSeconds = 0
+                if (!root._stopRequested && exitCode !== 0) {
+                    ToastService.showInfo("Screen Recorder", "Grabación cancelada")
+                }
+                root._stopRequested = false
+                destroy()
             }
-            ToastService.showInfo("Screen Recorder", "Grabación guardada")
-        } else {
-            ToastService.showError("Screen Recorder", "No se pudo detener la grabación")
         }
     }
 
-    function toggleRecording() {
-        if (root.isRecording) stopRecording()
-        else startRecording()
+    ccWidgetIcon: root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle")
+    ccWidgetPrimaryText: "Screen Recorder"
+    ccWidgetSecondaryText: {
+        if (root.recordState === "idle") return "Listo"
+        if (root.recordState === "paused") return "Pausado · " + _formatTime(root.recordTimerSeconds)
+        return "Grabando · " + _formatTime(root.recordTimerSeconds)
     }
-
-    ccWidgetIcon: root.isRecording ? "stop_circle" : "videocam"
-    ccWidgetPrimaryText: root.isRecording ? "Grabando" : "Screen Recorder"
-    ccWidgetSecondaryText: root.isRecording ? "Pulsa para guardar y detener" : "Pulsa para iniciar grabación"
-    ccWidgetIsActive: root.isRecording
-    onCcWidgetToggled: toggleRecording()
+    ccWidgetIsActive: root.recordState !== "idle"
 
     horizontalBarPill: Component {
-        Row {
-            spacing: Theme.spacingS
-            DankIcon {
-                name: root.isRecording ? "stop_circle" : "videocam"
-                size: Theme.iconSize
-                color: root.isRecording ? Theme.error : Theme.primary
+        Item {
+            width: pillRow.width
+            implicitHeight: pillRow.height || 24
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.LeftButton) {
+                        if (root.recordState === "idle") startRecording()
+                        else stopRecording()
+                    } else if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                        root.togglePause()
+                    }
+                }
+            }
+
+            Row {
+                id: pillRow
+                spacing: Theme.spacingS
                 anchors.verticalCenter: parent.verticalCenter
-            }
-            StyledText {
-                text: root.isRecording ? "Grabando" : "Grabar"
-                font.pixelSize: Theme.fontSizeMedium
-                color: Theme.surfaceText
-                anchors.verticalCenter: parent.verticalCenter
-            }
-        }
-    }
-    verticalBarPill: Component {
-        Column {
-            spacing: Theme.spacingXS
-            DankIcon {
-                name: root.isRecording ? "stop_circle" : "videocam"
-                size: Theme.iconSize
-                color: root.isRecording ? Theme.error : Theme.primary
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-            StyledText {
-                text: root.isRecording ? "Grabando" : "Grabar"
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceText
-                anchors.horizontalCenter: parent.horizontalCenter
+                DankIcon {
+                    name: root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle")
+                    size: Theme.barIconSize(root.barThickness, -2)
+                    color: root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "recording" ? Theme.errorText : Theme.warningText)
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                StyledText {
+                    visible: root.recordState !== "idle"
+                    text: root._formatTime(root.recordTimerSeconds)
+                    color: Theme.surfaceText
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Font.Bold
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
         }
     }
 
-    popoutContent: Component {
-        PopoutComponent {
-            id: popout
-            headerText: "Screen Recorder"
-            detailsText: root.isRecording ? "Replay buffer o grabación en curso" : "gpu-screen-recorder (Wayland)"
-            showCloseButton: true
-            Column {
-                width: parent.width - Theme.spacingL * 2
-                spacing: Theme.spacingM
-                StyledRect {
-                    width: parent.width - Theme.spacingL
-                    height: 48
-                    radius: Theme.cornerRadius
-                    color: root.isRecording ? Theme.errorContainer : Theme.primaryContainer
-                    StyledText {
-                        anchors.centerIn: parent
-                        text: root.isRecording ? "Detener y guardar" : "Iniciar grabación"
-                        font.pixelSize: Theme.fontSizeMedium
-                        color: root.isRecording ? Theme.onErrorContainer : Theme.onPrimaryContainer
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            root.toggleRecording()
-                            popout.closePopout()
-                        }
+    verticalBarPill: Component {
+        Item {
+            width: parent.width || 24
+            implicitHeight: pillCol.height
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.LeftButton) {
+                        if (root.recordState === "idle") startRecording()
+                        else stopRecording()
+                    } else if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                        root.togglePause()
                     }
                 }
+            }
+
+            Column {
+                id: pillCol
+                spacing: Theme.spacingXS
+                anchors.horizontalCenter: parent.horizontalCenter
+                DankIcon {
+                    name: root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle")
+                    size: Theme.barIconSize(root.barThickness, -2)
+                    color: root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "recording" ? Theme.errorText : Theme.warningText)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
                 StyledText {
-                    width: parent.width
-                    text: "Origen: " + root.captureSource + " · " + root.fps + " fps · " + root.quality
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceVariantText
-                    wrapMode: Text.WordWrap
+                    visible: root.recordState !== "idle"
+                    text: root._formatTime(root.recordTimerSeconds)
+                    color: Theme.surfaceText
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    anchors.horizontalCenter: parent.horizontalCenter
                 }
             }
         }
     }
-    popoutWidth: 320
-    popoutHeight: 220
 }

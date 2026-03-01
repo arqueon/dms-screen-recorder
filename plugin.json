@@ -8,6 +8,7 @@
   "type": "widget",
   "component": "./ScreenRecorder.qml",
   "settings": "./Settings.qml",
+  "capabilities": ["dankbar-widget", "control-center"],
   "permissions": ["settings_read", "settings_write", "process"],
   "requires_dms": ">=1.2.0"
 }
