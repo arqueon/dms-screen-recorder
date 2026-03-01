@@ -18,6 +18,7 @@ PluginComponent {
     property string recordState: "idle"  // idle | recording | paused
     property int recordTimerSeconds: 0
     property bool _stopRequested: false
+    property bool _cooldown: false
 
     function _formatTime(totalSeconds) {
         var m = Math.floor(totalSeconds / 60)
@@ -57,7 +58,7 @@ PluginComponent {
     }
 
     function startRecording() {
-        if (root.recordState !== "idle") return
+        if (root.recordState !== "idle" || root._cooldown) return
         if (typeof pluginService !== "undefined" && pluginService) {
             root.fps = pluginService.loadPluginData(pluginId, "fps", "60") || "60"
             root.quality = pluginService.loadPluginData(pluginId, "quality", "very_high") || "very_high"
@@ -71,7 +72,7 @@ PluginComponent {
         root.recordState = "recording"
         root.recordTimerSeconds = 0
         recordingTimer.start()
-        ToastService.showInfo("Screen Recorder", "Selecciona ventana o pantalla en el Portal")
+        ToastService.showInfo("Screen Recorder", "Selecciona en el Portal. Clic en el icono para detener.")
     }
 
     function stopRecording() {
@@ -80,11 +81,21 @@ PluginComponent {
         if (root.recordState === "paused") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
         }
-        Quickshell.execDetached(["sh", "-c", "sleep 0.2; pkill -SIGINT -f gpu-screen-recorder"])
+        // SIGINT para guardar el MP4; luego SIGKILL para cerrar el Portal si sigue abierto
+        Quickshell.execDetached(["sh", "-c", "sleep 0.2; pkill -SIGINT -f gpu-screen-recorder; sleep 1.2; pkill -SIGKILL -f gpu-screen-recorder"])
         root.recordState = "idle"
         recordingTimer.stop()
         root.recordTimerSeconds = 0
+        root._cooldown = true
+        cooldownTimer.start()
         ToastService.showInfo("Screen Recorder", "Guardado")
+    }
+
+    Timer {
+        id: cooldownTimer
+        interval: 1500
+        repeat: false
+        onTriggered: root._cooldown = false
     }
 
     Component {
