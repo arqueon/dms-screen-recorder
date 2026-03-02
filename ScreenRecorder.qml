@@ -49,11 +49,11 @@ PluginComponent {
         if (root.recordState === "recording") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGSTOP -f gpu-screen-recorder"])
             root.recordState = "paused"
-            ToastService.showInfo("Screen Recorder", "Recording paused")
+            ToastService.showInfo("Recording paused")
         } else if (root.recordState === "paused") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
             root.recordState = "recording"
-            ToastService.showInfo("Screen Recorder", "Recording resumed")
+            ToastService.showInfo("Recording resumed")
         }
     }
 
@@ -72,7 +72,7 @@ PluginComponent {
         root.recordState = "recording"
         root.recordTimerSeconds = 0
         recordingTimer.start()
-        ToastService.showInfo("Screen Recorder", "Recording started. Select area in the Portal.")
+        ToastService.showInfo("Recording started. Select area in the Portal.")
     }
 
     function stopRecording() {
@@ -88,7 +88,7 @@ PluginComponent {
         root.recordTimerSeconds = 0
         root._cooldown = true
         cooldownTimer.start()
-        ToastService.showInfo("Screen Recorder", "Recording stopped and saved successfully")
+        ToastService.showInfo("Recording stopped and saved successfully")
     }
 
     Timer {
@@ -109,11 +109,11 @@ PluginComponent {
                 root.recordTimerSeconds = 0
                 if (!root._stopRequested && exitCode !== 0) {
                     if (exitCode === 127) {
-                        ToastService.showError("Screen Recorder", "gpu-screen-recorder is not installed or not in PATH.")
+                        ToastService.showError("gpu-screen-recorder is not installed or not in PATH.")
                     } else if (root.recordTimerSeconds < 3 && exitCode === 1) {
-                        ToastService.showError("Screen Recorder Failed", "Check if xdg-desktop-portal (GNOME or Hyprland) is running and configured correctly.")
+                        ToastService.showError("Check if xdg-desktop-portal (GNOME or Hyprland) is running and configured correctly.")
                     } else {
-                        ToastService.showError("Screen Recorder", "Recording crashed or was cancelled. Exit code: " + exitCode)
+                        ToastService.showError("Recording crashed or was cancelled. Exit code: " + exitCode)
                     }
                 }
                 root._stopRequested = false
