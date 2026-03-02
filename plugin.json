@@ -1,14 +1,21 @@
 {
   "id": "screenRecorder",
   "name": "Screen Recorder",
-  "description": "Inicia, detiene y configura capturas de pantalla con gpu-screen-recorder (Wayland: niri, Hyprland, etc.)",
+  "description": "Start, stop, and configure screen captures with gpu-screen-recorder (Wayland: niri, Hyprland, etc.)",
   "version": "1.0.0",
   "author": "",
   "icon": "videocam",
   "type": "widget",
   "component": "./ScreenRecorder.qml",
   "settings": "./Settings.qml",
-  "capabilities": ["dankbar-widget", "control-center"],
-  "permissions": ["settings_read", "settings_write", "process"],
+  "capabilities": [
+    "dankbar-widget",
+    "control-center"
+  ],
+  "permissions": [
+    "settings_read",
+    "settings_write",
+    "process"
+  ],
   "requires_dms": ">=1.2.0"
 }

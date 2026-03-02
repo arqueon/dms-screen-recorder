@@ -1,76 +1,113 @@
-# Screen Recorder — Plugin Dank Material Shell
+# Screen Recorder — Dank Material Shell Plugin
 
-Plugin para **Dank Material Shell** que permite iniciar, detener y configurar grabaciones de pantalla con **gpu-screen-recorder** en Wayland (niri, Hyprland, GNOME, etc.).
+Plugin for **Dank Material Shell** that allows you to start, stop, and configure screen captures with **gpu-screen-recorder** on Wayland (niri, Hyprland, GNOME, etc.).
 
-## Requisitos
+## Requirements
 
-- [Dank Material Shell](https://github.com/AvengeMedia/DankMaterialShell) (DMS) en tu compositor
-- [gpu-screen-recorder](https://git.dec05eba.com/gpu-screen-recorder/) instalado y en el `PATH`
+- [Dank Material Shell](https://github.com/AvengeMedia/DankMaterialShell) (DMS) running on your compositor
+- [gpu-screen-recorder](https://git.dec05eba.com/gpu-screen-recorder/) installed and in your `PATH`
+- A working XDG Desktop Portal for screencasting (specifically `xdg-desktop-portal-gnome` is required for many Wayland compositors like niri)
 
-### Instalar gpu-screen-recorder
+### Installing Dependencies
 
-- **Arch:** `pacman -S gpu-screen-recorder`
-- **Otros:** compilar desde [fuente](https://git.dec05eba.com/gpu-screen-recorder/) o usar el paquete de tu distro.
-
-## Instalación del plugin
-
-1. Clona o copia este repositorio.
-2. Enlaza la carpeta al directorio de plugins de DMS:
-
+#### Arch Linux & Derivatives
 ```bash
-ln -sf /ruta/a/dms-screen-recorder ~/.config/DankMaterialShell/plugins/screenRecorder
+# Install gpu-screen-recorder
+sudo pacman -S gpu-screen-recorder
+
+# Install GNOME portal for screencasting (Required for niri)
+sudo pacman -S xdg-desktop-portal-gnome
 ```
 
-3. Recarga los plugins (o reinicia el shell):
+#### Ubuntu / Debian
+```bash
+# gpu-screen-recorder is not in the default repos, you may need a PPA or compile from source
+# https://git.dec05eba.com/gpu-screen-recorder/
+
+# Install the GNOME portal
+sudo apt install xdg-desktop-portal-gnome
+```
+
+#### Fedora
+```bash
+# Install gpu-screen-recorder (Available via Copr or build from source)
+# Install the GNOME portal
+sudo dnf install xdg-desktop-portal-gnome
+```
+
+#### Important: Activating the portal
+If your screen recording fails due to a portal issue (e.g., using `niri`), you must configure the desktop portal to prefer GNOME.
+Create or edit `~/.config/xdg-desktop-portal/portals.conf` (or `niri-portals.conf` depending on your setup) and add:
+
+```ini
+[preferred]
+default=gnome;gtk
+```
+
+Then restart the services so the changes apply:
+```bash
+systemctl --user restart xdg-desktop-portal xdg-desktop-portal-gnome
+```
+
+## Plugin Installation
+
+1. Clone or copy this repository.
+2. Link the folder to your DMS plugins directory:
+
+```bash
+ln -sf /path/to/dms-screen-recorder ~/.config/DankMaterialShell/plugins/screenRecorder
+```
+
+3. Reload plugins (or restart the shell):
 
 ```bash
 dms ipc call plugins reload screenRecorder
 ```
 
-4. En **DMS Settings → Plugins** activa el widget en la barra y/o en el Control Center.
+4. In **DMS Settings → Plugins**, activate the widget on the bar and/or the Control Center.
 
-## Uso
+## Usage
 
-- **Barra (DankBar):** icono de cámara / "Grabar". Clic para abrir el popout con **Iniciar** / **Detener y guardar**.
-- **Control Center:** toggle "Screen Recorder". Encendido = grabando; apagado = detenido y guardado.
+- **Bar (DankBar):** Camera / "Record" icon. Click to open the popout with **Start** / **Stop and save**.
+- **Control Center:** "Screen Recorder" toggle. On = recording; Off = stopped and saved.
 
-### Replay buffer (estilo ShadowPlay)
+### Replay buffer (ShadowPlay style)
 
-En **Configuración del plugin** pon **Buffer de replay** > 0 (por ejemplo 30 s). La grabación mantiene en memoria los últimos N segundos. Al pulsar **Detener**, se guarda solo ese clip en la carpeta de replays.
+In **Plugin Configuration**, set **Replay buffer** > 0 (e.g., 30s). The recording will keep the last N seconds in memory. When you click **Stop**, only that clip will be saved into the replays folder.
 
-## Configuración
+## Configuration
 
-En **DMS Settings → Plugins → Screen Recorder**:
+In **DMS Settings → Plugins → Screen Recorder**:
 
-| Opción | Descripción |
+| Option | Description |
 |--------|-------------|
-| **Origen de captura** | `portal` = eliges ventana/pantalla al iniciar; `screen` = primera pantalla |
-| **Carpeta de grabaciones** | Dónde se guardan los vídeos (ruta completa; por defecto /tmp si está vacío) |
-| **Buffer de replay** | 0 = grabación continua; >0 = últimos N segundos |
-| **Carpeta para replays** | Dónde se guardan los clips al detener (si replay > 0) |
+| **Capture source** | `portal` = choose window/screen on start; `screen` = first screen |
+| **Recordings folder** | Where to save videos (full path; defaults to ~/Videos/Screencasting if empty) |
+| **Replay buffer** | 0 = continuous recording; >0 = last N seconds |
+| **Replays folder** | Where to save clips on stop (if replay > 0) |
 | **FPS** | 24–120 |
-| **Calidad** | ultra / high / medium / low |
-| **Formato** | mp4, mkv, flv |
+| **Quality** | ultra / high / medium / low |
+| **Format** | mp4, mkv, flv |
 
-## Detener la grabación
+## Stop Recording
 
-El plugin detiene **gpu-screen-recorder** enviando `SIGUSR1`, para que guarde el archivo correctamente. No uses `pkill -KILL` salvo que quieras descartar la grabación.
+The plugin stops **gpu-screen-recorder** by sending `SIGUSR1`, so it saves the file correctly. Do not use `pkill -KILL` unless you want to discard the recording.
 
-## Desarrollo
+## Development
 
-Enlace simbólico para probar cambios sin reinstalar:
+Symlink to test changes without reinstalling:
 
 ```bash
 ln -sf "$(pwd)" ~/.config/DankMaterialShell/plugins/screenRecorder
 dms ipc call plugins reload screenRecorder
 ```
 
-Listar plugins y estado:
+List plugins and state:
 
 ```bash
 dms ipc call plugins list
 ```
 
-## Licencia
+## License
 
-Puedes usar y modificar este plugin bajo los mismos términos que aceptes para DMS y gpu-screen-recorder.
+You can use and modify this plugin under the same terms you accept for DMS and gpu-screen-recorder.

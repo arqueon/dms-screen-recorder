@@ -16,7 +16,7 @@ PluginSettings {
     }
     StyledText {
         width: parent.width
-        text: "Inicia, detiene y configura grabaciones de pantalla en Wayland (niri, Hyprland, etc.). Requiere gpu-screen-recorder instalado."
+        text: "Start, stop, and configure screen captures in Wayland (niri, Hyprland, etc.). Requires gpu-screen-recorder installed."
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
@@ -24,8 +24,8 @@ PluginSettings {
 
     SelectionSetting {
         settingKey: "fps"
-        label: "Frames por segundo (FPS)"
-        description: "Tasa de grabación"
+        label: "Frames per second (FPS)"
+        description: "Recording framerate"
         options: [
             { label: "30 FPS", value: "30" },
             { label: "60 FPS", value: "60" }
@@ -35,38 +35,38 @@ PluginSettings {
 
     SelectionSetting {
         settingKey: "quality"
-        label: "Calidad de vídeo"
-        description: "Calidad de codificación h264"
+        label: "Video quality"
+        description: "h264 encoding quality"
         options: [
-            { label: "Media", value: "medium" },
-            { label: "Alta", value: "high" },
-            { label: "Muy alta", value: "very_high" }
+            { label: "Medium", value: "medium" },
+            { label: "High", value: "high" },
+            { label: "Very high", value: "very_high" }
         ]
         defaultValue: "very_high"
     }
 
     ToggleSetting {
         settingKey: "recordCursor"
-        label: "Grabar cursor"
-        description: "Incluir el puntero del ratón en la grabación"
+        label: "Record cursor"
+        description: "Include the mouse pointer in the recording"
         defaultValue: true
     }
 
     SelectionSetting {
         settingKey: "captureSource"
-        label: "Origen de captura"
-        description: "portal = elegir ventana/pantalla; screen = primera pantalla"
+        label: "Capture source"
+        description: "portal = choose window/screen; screen = first screen"
         options: [
-            { label: "Portal (elegir)", value: "portal" },
-            { label: "Pantalla completa", value: "screen" }
+            { label: "Portal (choose)", value: "portal" },
+            { label: "Full screen", value: "screen" }
         ]
         defaultValue: "portal"
     }
 
     StringSetting {
         settingKey: "outputDir"
-        label: "Carpeta de grabaciones"
-        description: "Vacío = ~/Videos/Screencasting"
+        label: "Recordings folder"
+        description: "Empty = ~/Videos/Screencasting"
         placeholder: "${XDG_VIDEOS_DIR:-$HOME/Videos}/Screencasting"
         defaultValue: ""
     }

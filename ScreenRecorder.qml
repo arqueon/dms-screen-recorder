@@ -49,11 +49,11 @@ PluginComponent {
         if (root.recordState === "recording") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGSTOP -f gpu-screen-recorder"])
             root.recordState = "paused"
-            ToastService.showInfo("Screen Recorder", "Grabación pausada")
+            ToastService.showInfo("Screen Recorder", "Recording paused")
         } else if (root.recordState === "paused") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
             root.recordState = "recording"
-            ToastService.showInfo("Screen Recorder", "Grabación reanudada")
+            ToastService.showInfo("Screen Recorder", "Recording resumed")
         }
     }
 
@@ -72,7 +72,7 @@ PluginComponent {
         root.recordState = "recording"
         root.recordTimerSeconds = 0
         recordingTimer.start()
-        ToastService.showInfo("Screen Recorder", "Selecciona en el Portal. Clic en el icono para detener.")
+        ToastService.showInfo("Screen Recorder", "Select area in the Portal. Click the icon to stop.")
     }
 
     function stopRecording() {
@@ -81,14 +81,14 @@ PluginComponent {
         if (root.recordState === "paused") {
             Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
         }
-        // SIGINT para guardar el MP4; luego SIGKILL para cerrar el Portal si sigue abierto
+        // SIGINT to save the MP4; then SIGKILL to close the Portal if it remains open
         Quickshell.execDetached(["sh", "-c", "sleep 0.2; pkill -SIGINT -f gpu-screen-recorder; sleep 1.2; pkill -SIGKILL -f gpu-screen-recorder"])
         root.recordState = "idle"
         recordingTimer.stop()
         root.recordTimerSeconds = 0
         root._cooldown = true
         cooldownTimer.start()
-        ToastService.showInfo("Screen Recorder", "Guardado")
+        ToastService.showInfo("Screen Recorder", "Saved")
     }
 
     Timer {
@@ -108,7 +108,7 @@ PluginComponent {
                 recordingTimer.stop()
                 root.recordTimerSeconds = 0
                 if (!root._stopRequested && exitCode !== 0) {
-                    ToastService.showInfo("Screen Recorder", "Grabación cancelada")
+                    ToastService.showInfo("Screen Recorder", "Recording cancelled")
                 }
                 root._stopRequested = false
                 destroy()
@@ -119,9 +119,9 @@ PluginComponent {
     ccWidgetIcon: root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle")
     ccWidgetPrimaryText: "Screen Recorder"
     ccWidgetSecondaryText: {
-        if (root.recordState === "idle") return "Listo"
-        if (root.recordState === "paused") return "Pausado · " + _formatTime(root.recordTimerSeconds)
-        return "Grabando · " + _formatTime(root.recordTimerSeconds)
+        if (root.recordState === "idle") return "Ready"
+        if (root.recordState === "paused") return "Paused · " + _formatTime(root.recordTimerSeconds)
+        return "Recording · " + _formatTime(root.recordTimerSeconds)
     }
     ccWidgetIsActive: root.recordState !== "idle"
 
