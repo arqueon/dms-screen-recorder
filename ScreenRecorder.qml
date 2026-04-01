@@ -133,7 +133,7 @@ PluginComponent {
 
     horizontalBarPill: Component {
         Item {
-            width: pillRow.width
+            implicitWidth: pillRow.width || 24
             implicitHeight: pillRow.height || 24
 
             MouseArea {
