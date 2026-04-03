@@ -12,6 +12,7 @@ PluginComponent {
     property string fps: pluginData.fps || "60"
     property string quality: pluginData.quality || "very_high"
     property bool recordCursor: pluginData.recordCursor !== undefined ? pluginData.recordCursor : true
+    property bool recordAudio: pluginData.recordAudio !== undefined ? pluginData.recordAudio : true
     property string outputDir: pluginData.outputDir || ""
     property string captureSource: pluginData.captureSource || "portal"
 
@@ -63,10 +64,12 @@ PluginComponent {
             root.fps = pluginService.loadPluginData(pluginId, "fps", "60") || "60"
             root.quality = pluginService.loadPluginData(pluginId, "quality", "very_high") || "very_high"
             root.recordCursor = pluginService.loadPluginData(pluginId, "recordCursor", true)
+            root.recordAudio = pluginService.loadPluginData(pluginId, "recordAudio", true)
         }
         var dir = (outputDir || "").replace(/\/$/, "") || "${XDG_VIDEOS_DIR:-$HOME/Videos}/Screencasting"
         var cursorFlag = root.recordCursor ? "yes" : "no"
-        var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; FILE=\"$DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4\"; exec gpu-screen-recorder -w " + captureSource + " -f " + root.fps + " -k h264 -ac opus -a default_output -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$FILE\""
+        var audioFlags = root.recordAudio ? " -ac opus -a default_output" : ""
+        var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; FILE=\"$DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4\"; exec gpu-screen-recorder -w " + captureSource + " -f " + root.fps + " -k h264" + audioFlags + " -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$FILE\""
         var proc = recorderProcessComponent.createObject(root, { procCommand: ["sh", "-c", script] })
         proc.running = true
         root.recordState = "recording"
@@ -89,6 +92,38 @@ PluginComponent {
         root._cooldown = true
         cooldownTimer.start()
         ToastService.showInfo("Recording stopped and saved successfully")
+    }
+
+    IpcHandler {
+        target: "screenRecorder"
+
+        function startRecording(): string {
+            if (root.recordState !== "idle") return "already_recording"
+            root.startRecording()
+            return "recording_started"
+        }
+
+        function stopRecording(): string {
+            if (root.recordState === "idle") return "not_recording"
+            root.stopRecording()
+            return "recording_stopped"
+        }
+
+        function toggleRecording(): string {
+            if (root.recordState === "idle") {
+                root.startRecording()
+                return "recording_started"
+            } else {
+                root.stopRecording()
+                return "recording_stopped"
+            }
+        }
+
+        function togglePause(): string {
+            if (root.recordState === "idle") return "not_recording"
+            root.togglePause()
+            return root.recordState === "paused" ? "recording_paused" : "recording_resumed"
+        }
     }
 
     Timer {
@@ -133,8 +168,8 @@ PluginComponent {
 
     horizontalBarPill: Component {
         Item {
-            width: pillRow.width
-            implicitHeight: pillRow.height || 24
+            implicitWidth: pillRow.implicitWidth
+            implicitHeight: pillRow.implicitHeight || 24
 
             MouseArea {
                 anchors.fill: parent
@@ -152,7 +187,7 @@ PluginComponent {
             Row {
                 id: pillRow
                 spacing: Theme.spacingS
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.centerIn: parent
                 DankIcon {
                     name: root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle")
                     size: Theme.barIconSize(root.barThickness, -2)
