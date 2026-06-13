@@ -82,7 +82,7 @@ PluginComponent {
             ('0' + now.getMinutes()).slice(-2) + '-' +
             ('0' + now.getSeconds()).slice(-2)
         var fileName = dateStr + '.mp4'
-        root._currentOutputFile = dir + '/' + fileName
+        root._currentOutputFile = (dir + '/' + fileName).trim()
         var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; exec gpu-screen-recorder -w " + root.captureSource + " -f " + root.fps + " -k h264" + audioFlags + " -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$DIR/" + fileName + "\""
         var proc = recorderProcessComponent.createObject(root, { procCommand: ["sh", "-c", script] })
         proc.running = true
@@ -165,7 +165,7 @@ PluginComponent {
                     }
                 }
                 if (root._stopRequested && root._currentOutputFile) {
-                    var postCmd = root.pluginService.loadPluginData(root.pluginId, "postRecordCommand", "") || ""
+                    var postCmd = (root.pluginService.loadPluginData(root.pluginId, "postRecordCommand", "") || "").trim()
                     if (postCmd) {
                         var path = root._currentOutputFile
                         Quickshell.execDetached(["sh", "-c", "set -- \"" + path.replace(/"/g, '\\"') + "\"; " + postCmd])
