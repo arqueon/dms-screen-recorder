@@ -82,7 +82,7 @@ PluginSettings {
         settingKey: "postRecordCommand"
         label: "Post-record command"
         description: "Command to run after recording finishes. The file path is passed as the last argument."
-        placeholder: "dragon-drop"
+        placeholder: "dragon-drop $1"
         defaultValue: ""
     }
 
