@@ -1,21 +1,15 @@
 {
-  "id": "screenRecorder",
-  "name": "Screen Recorder",
-  "description": "Start, stop, and configure screen captures with gpu-screen-recorder on any Wayland compositor",
-  "version": "1.2.0",
-  "author": "arqueon",
-  "icon": "videocam",
-  "type": "launcher",
-  "component": "./ScreenRecorderService.qml",
-  "settings": "./Settings.qml",
-  "capabilities": [
-    "dankbar-widget",
-    "control-center"
-  ],
-  "permissions": [
-    "settings_read",
-    "settings_write",
-    "process"
-  ],
-  "requires_dms": ">=1.2.0"
+	"id": "screenRecorder",
+	"name": "Screen Recorder",
+	"description": "Start, stop, and configure screen captures with gpu-screen-recorder on any Wayland compositor",
+	"version": "1.3.0",
+	"author": "arqueon",
+	"icon": "videocam",
+	"type": "launcher",
+	"component": "./ScreenRecorderService.qml",
+	"settings": "./Settings.qml",
+	"capabilities": ["dankbar-widget", "control-center"],
+	"permissions": ["settings_read", "settings_write", "process"],
+	"requires_dms": ">=1.2.0"
 }
+

@@ -119,6 +119,7 @@ Open **DMS Settings → Plugins → Screen Recorder**:
 | **Record cursor** | Include mouse pointer | On |
 | **Capture source** | `portal` = choose window/screen on start; `screen` = first monitor | portal |
 | **Recordings folder** | Output directory (empty = `~/Videos/Screencasting`) | — |
+| **Post-record command** | Command to run after recording finishes (file path appended as last arg) | — |
 
 ## How stopping works
 
