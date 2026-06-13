@@ -165,9 +165,10 @@ PluginComponent {
                     }
                 }
                 if (root._stopRequested && root._currentOutputFile) {
-                    var postCmd = pluginService.loadPluginData(pluginId, "postRecordCommand", "") || ""
+                    var postCmd = root.pluginService.loadPluginData(root.pluginId, "postRecordCommand", "") || ""
                     if (postCmd) {
-                        Quickshell.execDetached(["sh", "-c", postCmd + " \"" + root._currentOutputFile.replace(/"/g, '\\"') + "\""])
+                        var path = root._currentOutputFile
+                        Quickshell.execDetached(["sh", "-c", "set -- \"" + path.replace(/"/g, '\\"') + "\"; " + postCmd])
                     }
                 }
                 root._stopRequested = false
