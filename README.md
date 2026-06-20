@@ -119,6 +119,19 @@ Open **DMS Settings → Plugins → Screen Recorder**:
 | **Record cursor** | Include mouse pointer | On |
 | **Capture source** | `portal` = choose window/screen on start; `screen` = first monitor | portal |
 | **Recordings folder** | Output directory (empty = `~/Videos/Screencasting`) | — |
+| **Post-record command** | Command to run after recording finishes. Use `$1` to reference the file path. | — |
+
+### Post-record command examples
+
+| Goal | Setting value |
+|------|---------------|
+| Copy `file://` URI to clipboard | `wl-copy --type text/uri-list "file://$1"` |
+| Open file with `dragon-drop` | `dragon-drop "$1"` |
+| Open in `mpv` | `mpv "$1"` |
+| Copy raw path to clipboard | `wl-copy "$1"` |
+| Run a custom script | `~/.local/bin/my-script "$1"` |
+
+The file path is available as `$1` and is fully expanded (e.g. `~/Videos/Screencasting/2026-06-13_09-00-00.mp4`).
 
 ## How stopping works
 

@@ -78,6 +78,14 @@ PluginSettings {
         defaultValue: ""
     }
 
+    StringSetting {
+        settingKey: "postRecordCommand"
+        label: "Post-record command"
+        description: "Command to run after recording finishes. The file path is passed as the last argument."
+        placeholder: "dragon-drop $1"
+        defaultValue: ""
+    }
+
     StyledRect {
         width: parent.width
         height: controlsColumn.implicitHeight + Theme.spacingL * 2

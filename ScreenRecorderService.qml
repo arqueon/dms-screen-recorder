@@ -21,6 +21,7 @@ PluginComponent {
     property int recordTimerSeconds: 0
     property bool _stopRequested: false
     property bool _cooldown: false
+    property string _currentOutputFile: ""
 
     Component.onCompleted: {
         if (pluginService) {
@@ -73,7 +74,16 @@ PluginComponent {
         var dir = (root.outputDir || "").replace(/\/$/, "") || "${XDG_VIDEOS_DIR:-$HOME/Videos}/Screencasting"
         var cursorFlag = root.recordCursor ? "yes" : "no"
         var audioFlags = root.recordAudio ? " -ac opus -a default_output" : ""
-        var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; FILE=\"$DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4\"; exec gpu-screen-recorder -w " + root.captureSource + " -f " + root.fps + " -k h264" + audioFlags + " -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$FILE\""
+        var now = new Date()
+        var dateStr = now.getFullYear() + '-' +
+            ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
+            ('0' + now.getDate()).slice(-2) + '_' +
+            ('0' + now.getHours()).slice(-2) + '-' +
+            ('0' + now.getMinutes()).slice(-2) + '-' +
+            ('0' + now.getSeconds()).slice(-2)
+        var fileName = dateStr + '.mp4'
+        root._currentOutputFile = (dir + '/' + fileName).trim()
+        var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; exec gpu-screen-recorder -w " + root.captureSource + " -f " + root.fps + " -k h264" + audioFlags + " -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$DIR/" + fileName + "\""
         var proc = recorderProcessComponent.createObject(root, { procCommand: ["sh", "-c", script] })
         proc.running = true
         root.recordState = "recording"
@@ -154,7 +164,15 @@ PluginComponent {
                         ToastService.showError("Recording crashed or was cancelled. Exit code: " + exitCode)
                     }
                 }
+                if (root._stopRequested && root._currentOutputFile) {
+                    var postCmd = (root.pluginService.loadPluginData(root.pluginId, "postRecordCommand", "") || "").trim()
+                    if (postCmd) {
+                        var path = root._currentOutputFile
+                        Quickshell.execDetached(["sh", "-c", "set -- \"" + path.replace(/"/g, '\\"') + "\"; " + postCmd])
+                    }
+                }
                 root._stopRequested = false
+                root._currentOutputFile = ""
                 destroy()
             }
         }
