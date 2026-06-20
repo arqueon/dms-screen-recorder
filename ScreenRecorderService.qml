@@ -23,16 +23,7 @@ PluginComponent {
     property bool _cooldown: false
     property string _currentOutputFile: ""
 
-    Component.onCompleted: {
-        if (pluginService) {
-            var widgetComp = Qt.createComponent(Qt.resolvedUrl("ScreenRecorder.qml"), Component.PreferSynchronous, root)
-            if (widgetComp.status === Component.Ready) {
-                var newWc = Object.assign({}, pluginService.pluginWidgetComponents)
-                newWc["screenRecorder"] = widgetComp
-                pluginService.pluginWidgetComponents = newWc
-            }
-        }
-    }
+
 
     function _formatTime(totalSeconds) {
         var m = Math.floor(totalSeconds / 60)
