@@ -8,27 +8,45 @@ import qs.Modules.Plugins
 PluginComponent {
     id: root
 
-    pluginId: "screenRecorder"
-
-    property string fps: pluginData.fps || "60"
-    property string quality: pluginData.quality || "very_high"
-    property bool recordCursor: pluginData.recordCursor !== undefined ? pluginData.recordCursor : true
-    property bool recordAudio: pluginData.recordAudio !== undefined ? pluginData.recordAudio : true
-    property string outputDir: pluginData.outputDir || ""
-    property string captureSource: pluginData.captureSource || "portal"
-
-    property string recordState: "idle"  // idle | recording | paused
+    property var popoutService: null
+    property string recordState: "idle" // idle | recording | paused | stopping
     property int recordTimerSeconds: 0
     property bool _stopRequested: false
-    property bool _cooldown: false
+    property bool _cancelStart: false
     property string _currentOutputFile: ""
+    property string _lastStderr: ""
 
+    function _setState(state) {
+        recordState = state
+        pluginService?.setGlobalVar(pluginId, "recordState", state)
+    }
 
+    function _setTimer(seconds) {
+        recordTimerSeconds = seconds
+        pluginService?.setGlobalVar(pluginId, "recordTimerSeconds", seconds)
+    }
 
-    function _formatTime(totalSeconds) {
-        var m = Math.floor(totalSeconds / 60)
-        var s = totalSeconds % 60
-        return m + ":" + (s < 10 ? "0" + s : s)
+    function _setDiagnostic(text) {
+        pluginService?.setGlobalVar(pluginId, "lastDiagnostic", text)
+    }
+
+    function _loadSetting(key, fallback) {
+        return pluginService ? pluginService.loadPluginData(pluginId, key, fallback) : fallback
+    }
+
+    function _shortDiagnostic(text) {
+        const cleaned = (text || "").trim().replace(/\s+/g, " ")
+        return cleaned.length > 500 ? cleaned.slice(0, 497) + "..." : cleaned
+    }
+
+    function _resetRuntimeState() {
+        recordingTimer.stop()
+        stopEscalationTimer.stop()
+        killEscalationTimer.stop()
+        _setTimer(0)
+        _setState("idle")
+        _stopRequested = false
+        _cancelStart = false
     }
 
     Timer {
@@ -36,66 +54,177 @@ PluginComponent {
         interval: 1000
         repeat: true
         running: root.recordState === "recording"
-        onTriggered: root.recordTimerSeconds += 1
+        onTriggered: root._setTimer(root.recordTimerSeconds + 1)
     }
 
-    function togglePause() {
-        if (root.recordState === "idle") return
-        if (root.recordState === "recording") {
-            Quickshell.execDetached(["sh", "-c", "pkill -SIGSTOP -f gpu-screen-recorder"])
-            root.recordState = "paused"
-            ToastService.showInfo("Recording paused")
-        } else if (root.recordState === "paused") {
-            Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
-            root.recordState = "recording"
-            ToastService.showInfo("Recording resumed")
+    Timer {
+        id: stopEscalationTimer
+        interval: 10000
+        repeat: false
+        onTriggered: {
+            if (!recorder.running) return
+            ToastService.showInfo("Recorder is taking longer than expected to stop; sending SIGTERM.")
+            recorder.signal(15)
+            killEscalationTimer.start()
+        }
+    }
+
+    Timer {
+        id: killEscalationTimer
+        interval: 5000
+        repeat: false
+        onTriggered: {
+            if (!recorder.running) return
+            ToastService.showError("Recorder did not stop", "Force-stopping it may leave the video incomplete.")
+            recorder.signal(9)
         }
     }
 
     function startRecording() {
-        if (root.recordState !== "idle" || root._cooldown) return
-        if (typeof pluginService !== "undefined" && pluginService) {
-            root.fps = pluginService.loadPluginData(pluginId, "fps", "60") || "60"
-            root.quality = pluginService.loadPluginData(pluginId, "quality", "very_high") || "very_high"
-            root.recordCursor = pluginService.loadPluginData(pluginId, "recordCursor", true)
-            root.recordAudio = pluginService.loadPluginData(pluginId, "recordAudio", true)
-            root.captureSource = pluginService.loadPluginData(pluginId, "captureSource", "portal") || "portal"
-            root.outputDir = pluginService.loadPluginData(pluginId, "outputDir", "") || ""
+        if (recordState !== "idle") return
+        _cancelStart = false
+        _setDiagnostic("")
+        _setState("preparing")
+        _setTimer(0)
+
+        const captureSource = _loadSetting("captureSource", "portal") || "portal"
+        if (captureSource === "portal") {
+            Proc.runCommand(
+                "screenRecorder.portalCheck",
+                ["sh", "-c", "gdbus introspect --session --dest org.freedesktop.portal.Desktop --object-path /org/freedesktop/portal/desktop 2>/dev/null | grep -q 'org.freedesktop.portal.ScreenCast'"],
+                (stdout, exitCode) => {
+                    if (_cancelStart || recordState !== "preparing") return
+                    if (exitCode !== 0) {
+                        _setDiagnostic("The XDG portal ScreenCast interface is unavailable.")
+                        _resetRuntimeState()
+                        ToastService.showError("Portal capture is unavailable", "Start a compatible xdg-desktop-portal backend, or choose All screens capture.")
+                        return
+                    }
+                    _resolveOutputDirectory()
+                }
+            )
+        } else {
+            _resolveOutputDirectory()
         }
-        var dir = (root.outputDir || "").replace(/\/$/, "") || "${XDG_VIDEOS_DIR:-$HOME/Videos}/Screencasting"
-        var cursorFlag = root.recordCursor ? "yes" : "no"
-        var audioFlags = root.recordAudio ? " -ac opus -a default_output" : ""
-        var now = new Date()
-        var dateStr = now.getFullYear() + '-' +
-            ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
-            ('0' + now.getDate()).slice(-2) + '_' +
-            ('0' + now.getHours()).slice(-2) + '-' +
-            ('0' + now.getMinutes()).slice(-2) + '-' +
-            ('0' + now.getSeconds()).slice(-2)
-        var fileName = dateStr + '.mp4'
-        root._currentOutputFile = (dir + '/' + fileName).trim()
-        var script = "if ! command -v gpu-screen-recorder >/dev/null 2>&1; then exit 127; fi; DIR=\"" + dir.replace(/"/g, '\\"') + "\"; mkdir -p \"$DIR\"; exec gpu-screen-recorder -w " + root.captureSource + " -f " + root.fps + " -k h264" + audioFlags + " -q " + root.quality + " -cursor " + cursorFlag + " -cr limited -o \"$DIR/" + fileName + "\""
-        var proc = recorderProcessComponent.createObject(root, { procCommand: ["sh", "-c", script] })
-        proc.running = true
-        root.recordState = "recording"
-        root.recordTimerSeconds = 0
-        recordingTimer.start()
-        ToastService.showInfo("Recording started. Select area in the Portal.")
+    }
+
+    function _resolveOutputDirectory() {
+        const configuredDir = String(_loadSetting("outputDir", "") || "").trim()
+        Proc.runCommand(
+            "screenRecorder.outputDirectory",
+            ["sh", "-c", "if [ -n \"$1\" ]; then printf '%s' \"$1\"; else printf '%s/Screencasting' \"${XDG_VIDEOS_DIR:-$HOME/Videos}\"; fi", "screenRecorder", configuredDir],
+            (stdout, exitCode) => {
+                if (_cancelStart || recordState !== "preparing") return
+                const directory = stdout.trim()
+                if (exitCode !== 0 || !directory) {
+                    _setDiagnostic("Could not resolve the recordings directory.")
+                    _resetRuntimeState()
+                    ToastService.showError("Invalid recordings folder")
+                    return
+                }
+                _resolveAudioAndStart(directory)
+            }
+        )
+    }
+
+    function _resolveAudioAndStart(directory) {
+        if (!_loadSetting("recordAudio", true)) {
+            _launchRecorder(directory, "")
+            return
+        }
+
+        const configuredAudio = String(_loadSetting("audioSource", "default") || "default").trim()
+        if (configuredAudio && configuredAudio !== "default") {
+            _launchRecorder(directory, configuredAudio)
+            return
+        }
+
+        Proc.runCommand("screenRecorder.defaultAudio", ["pactl", "get-default-sink"], (stdout, exitCode) => {
+            if (_cancelStart || recordState !== "preparing") return
+            const sink = stdout.trim()
+            if (exitCode !== 0 || !sink) {
+                _setDiagnostic("Could not determine the default PipeWire/PulseAudio output monitor.")
+                _resetRuntimeState()
+                ToastService.showError("Audio source is unavailable", "Disable Record audio or enter a monitor source in the plugin settings.")
+                return
+            }
+            _launchRecorder(directory, sink + ".monitor")
+        })
+    }
+
+    function _launchRecorder(directory, audioSource) {
+        if (_cancelStart || recordState !== "preparing") return
+
+        const now = new Date()
+        const dateStr = now.getFullYear() + "-" +
+            ("0" + (now.getMonth() + 1)).slice(-2) + "-" +
+            ("0" + now.getDate()).slice(-2) + "_" +
+            ("0" + now.getHours()).slice(-2) + "-" +
+            ("0" + now.getMinutes()).slice(-2) + "-" +
+            ("0" + now.getSeconds()).slice(-2)
+        const outputFile = directory.replace(/\/$/, "") + "/" + dateStr + ".mp4"
+        const args = ["-w", _loadSetting("captureSource", "portal") || "portal",
+                      "-f", _loadSetting("fps", "60") || "60",
+                      "-k", "h264",
+                      "-q", _loadSetting("quality", "very_high") || "very_high",
+                      "-cursor", _loadSetting("recordCursor", true) ? "yes" : "no",
+                      "-cr", "limited"]
+        if (audioSource) args.push("-ac", "opus", "-a", audioSource)
+        args.push("-o", outputFile)
+
+        _currentOutputFile = outputFile
+        _lastStderr = ""
+        recorder.command = ["sh", "-c", "mkdir -p -- \"$1\" || exit 73; shift; exec gpu-screen-recorder \"$@\"", "screenRecorder", directory].concat(args)
+        recorder.running = true
+        _setState("recording")
+        ToastService.showInfo((_loadSetting("captureSource", "portal") === "portal") ? "Select an area in the portal to start recording." : "Recording started.")
     }
 
     function stopRecording() {
-        if (root.recordState === "idle") return
-        root._stopRequested = true
-        if (root.recordState === "paused") {
-            Quickshell.execDetached(["sh", "-c", "pkill -SIGCONT -f gpu-screen-recorder"])
+        if (recordState === "idle") return
+        if (recordState === "preparing") {
+            _cancelStart = true
+            _resetRuntimeState()
+            ToastService.showInfo("Recording start cancelled")
+            return
         }
-        Quickshell.execDetached(["sh", "-c", "sleep 0.2; pkill -SIGINT -f gpu-screen-recorder; sleep 1.2; pkill -SIGKILL -f gpu-screen-recorder"])
-        root.recordState = "idle"
-        recordingTimer.stop()
-        root.recordTimerSeconds = 0
-        root._cooldown = true
-        cooldownTimer.start()
-        ToastService.showInfo("Recording stopped and saved successfully")
+        if (recordState === "stopping") return
+
+        const wasPaused = recordState === "paused"
+        _stopRequested = true
+        _setState("stopping")
+        if (recorder.running) {
+            if (wasPaused) recorder.signal(18)
+            recorder.signal(2)
+            stopEscalationTimer.start()
+        }
+    }
+
+    function togglePause() {
+        if (!recorder.running || recordState === "idle" || recordState === "stopping") return
+        if (recordState === "recording") {
+            recorder.signal(19)
+            _setState("paused")
+            ToastService.showInfo("Recording paused")
+        } else if (recordState === "paused") {
+            recorder.signal(18)
+            _setState("recording")
+            ToastService.showInfo("Recording resumed")
+        }
+    }
+
+    function _finishStoppedRecording(path) {
+        Proc.runCommand("screenRecorder.verifyOutput", ["sh", "-c", "test -s \"$1\"", "screenRecorder", path], (stdout, exitCode) => {
+            if (exitCode === 0) {
+                const postCommand = String(_loadSetting("postRecordCommand", "") || "").trim()
+                if (postCommand) {
+                    Quickshell.execDetached(["sh", "-c", "set -- \"$1\"; " + postCommand, "screenRecorder", path])
+                }
+                ToastService.showInfo("Recording saved successfully")
+            } else {
+                ToastService.showError("Recording did not produce a video", "The recorder stopped, but the output file is missing or empty.")
+            }
+        })
     }
 
     IpcHandler {
@@ -104,23 +233,22 @@ PluginComponent {
         function startRecording(): string {
             if (root.recordState !== "idle") return "already_recording"
             root.startRecording()
-            return "recording_started"
+            return "recording_start_requested"
         }
 
         function stopRecording(): string {
             if (root.recordState === "idle") return "not_recording"
             root.stopRecording()
-            return "recording_stopped"
+            return "recording_stop_requested"
         }
 
         function toggleRecording(): string {
             if (root.recordState === "idle") {
                 root.startRecording()
-                return "recording_started"
-            } else {
-                root.stopRecording()
-                return "recording_stopped"
+                return "recording_start_requested"
             }
+            root.stopRecording()
+            return "recording_stop_requested"
         }
 
         function togglePause(): string {
@@ -130,42 +258,51 @@ PluginComponent {
         }
     }
 
-    Timer {
-        id: cooldownTimer
-        interval: 1500
-        repeat: false
-        onTriggered: root._cooldown = false
-    }
+    Process {
+        id: recorder
+        running: false
 
-    Component {
-        id: recorderProcessComponent
-        Process {
-            property var procCommand: ["sh", "-c", ""]
-            command: procCommand
-            onExited: function(exitCode) {
-                root.recordState = "idle"
-                recordingTimer.stop()
-                root.recordTimerSeconds = 0
-                if (!root._stopRequested && exitCode !== 0) {
-                    if (exitCode === 127) {
-                        ToastService.showError("gpu-screen-recorder is not installed or not in PATH.")
-                    } else if (root.recordTimerSeconds < 3 && exitCode === 1) {
-                        ToastService.showError("Check if xdg-desktop-portal is running and configured correctly.")
-                    } else {
-                        ToastService.showError("Recording crashed or was cancelled. Exit code: " + exitCode)
-                    }
+        stderr: StdioCollector {
+            onStreamFinished: root._lastStderr = text.trim()
+        }
+
+        onExited: function(exitCode) {
+            const wasStopRequested = root._stopRequested
+            const elapsedSeconds = root.recordTimerSeconds
+            const outputPath = root._currentOutputFile
+            const diagnostic = root._shortDiagnostic(root._lastStderr)
+
+            root._resetRuntimeState()
+            root._currentOutputFile = ""
+
+            if (wasStopRequested) {
+                if (exitCode === 0) {
+                    root._finishStoppedRecording(outputPath)
+                } else {
+                    const message = diagnostic || "gpu-screen-recorder exited with code " + exitCode + "."
+                    root._setDiagnostic(message)
+                    ToastService.showError("Recording could not be finalized", message)
                 }
-                if (root._stopRequested && root._currentOutputFile) {
-                    var postCmd = (root.pluginService.loadPluginData(root.pluginId, "postRecordCommand", "") || "").trim()
-                    if (postCmd) {
-                        var path = root._currentOutputFile
-                        Quickshell.execDetached(["sh", "-c", "set -- \"" + path.replace(/"/g, '\\"') + "\"; " + postCmd])
-                    }
-                }
-                root._stopRequested = false
-                root._currentOutputFile = ""
-                destroy()
+                return
+            }
+
+            if (exitCode !== 0) {
+                let message = diagnostic || "gpu-screen-recorder exited with code " + exitCode + "."
+                if (exitCode === 127) message = "gpu-screen-recorder is not installed or is not in PATH."
+                else if (elapsedSeconds < 3 && exitCode === 1 && !diagnostic) message = "The recorder exited immediately. Check the XDG portal, capture source, and audio settings."
+                root._setDiagnostic(message)
+                ToastService.showError("Recording failed", message)
+            } else {
+                const message = "The recorder exited unexpectedly. Check the saved video and plugin diagnostics."
+                root._setDiagnostic(message)
+                ToastService.showError("Recording ended unexpectedly", message)
             }
         }
+    }
+
+    Component.onCompleted: {
+        _setState("idle")
+        _setTimer(0)
+        _setDiagnostic("")
     }
 }

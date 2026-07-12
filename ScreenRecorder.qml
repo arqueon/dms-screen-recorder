@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Common
 import qs.Widgets
 import qs.Modules.Plugins
@@ -6,10 +7,8 @@ import qs.Modules.Plugins
 PluginComponent {
     id: root
 
-    readonly property var service: (pluginService && pluginId) ? pluginService.pluginInstances[pluginId] : null
-
-    readonly property string recordState: service ? service.recordState : "idle"
-    readonly property int recordTimerSeconds: service ? service.recordTimerSeconds : 0
+    readonly property string recordState: recordStateGlobal.value
+    readonly property int recordTimerSeconds: recordTimerGlobal.value
 
     property bool _pendingStop: false
 
@@ -19,9 +18,25 @@ PluginComponent {
         return m + ":" + (s < 10 ? "0" + s : s)
     }
 
-    function startRecording() { if (service) service.startRecording() }
-    function stopRecording() { if (service) service.stopRecording() }
-    function togglePause() { if (service) service.togglePause() }
+    function callRecorder(method) {
+        Quickshell.execDetached(["dms", "ipc", "call", "screenRecorder", method])
+    }
+
+    function startRecording() { callRecorder("startRecording") }
+    function stopRecording() { callRecorder("stopRecording") }
+    function togglePause() { callRecorder("togglePause") }
+
+    PluginGlobalVar {
+        id: recordStateGlobal
+        varName: "recordState"
+        defaultValue: "idle"
+    }
+
+    PluginGlobalVar {
+        id: recordTimerGlobal
+        varName: "recordTimerSeconds"
+        defaultValue: 0
+    }
 
     onRecordStateChanged: {
         if (recordState === "idle") {
@@ -70,9 +85,9 @@ PluginComponent {
                 spacing: Theme.spacingS
                 anchors.centerIn: parent
                 DankIcon {
-                    name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle"))
+                    name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
-                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "recording" ? Theme.errorText : Theme.warningText))
+                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 StyledText {
@@ -120,9 +135,9 @@ PluginComponent {
                 spacing: Theme.spacingXS
                 anchors.horizontalCenter: parent.horizontalCenter
                 DankIcon {
-                    name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "recording" ? "stop_circle" : "pause_circle"))
+                    name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
-                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "recording" ? Theme.errorText : Theme.warningText))
+                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
                 StyledText {

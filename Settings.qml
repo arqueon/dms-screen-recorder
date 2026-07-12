@@ -48,8 +48,16 @@ PluginSettings {
     ToggleSetting {
         settingKey: "recordAudio"
         label: "Record audio"
-        description: "Capture system audio output in the recording"
+        description: "Capture the configured PipeWire/PulseAudio output in the recording"
         defaultValue: true
+    }
+
+    StringSetting {
+        settingKey: "audioSource"
+        label: "Audio source"
+        description: "default = current output monitor. Use gpu-screen-recorder --list-audio-devices to choose another source."
+        placeholder: "default"
+        defaultValue: "default"
     }
 
     ToggleSetting {
@@ -62,10 +70,11 @@ PluginSettings {
     SelectionSetting {
         settingKey: "captureSource"
         label: "Capture source"
-        description: "portal = choose window/screen; screen = first screen"
+        description: "portal = choose window/screen; screen = all screens; focused = focused window"
         options: [
             { label: "Portal (choose)", value: "portal" },
-            { label: "Full screen", value: "screen" }
+            { label: "All screens", value: "screen" },
+            { label: "Focused window", value: "focused" }
         ]
         defaultValue: "portal"
     }

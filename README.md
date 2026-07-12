@@ -4,11 +4,19 @@ Plugin for **Dank Material Shell (DMS)** that wraps `gpu-screen-recorder` in a Q
 
 ![Plugin screenshot](assets/screenshot.png)
 
+## What's new in v1.4.0
+
+- Uses DMS's supported composite layout: an always-on daemon owns the recorder while DankBar widgets share its state over IPC.
+- Stops only the process it started. It sends `SIGINT` to finalize the video, then escalates only if that process fails to exit.
+- Checks the recorder binary and portal ScreenCast interface before starting, and surfaces `gpu-screen-recorder` diagnostics when a recording fails.
+- Verifies that the output video exists before reporting success or running a post-record command.
+- Adds focused-window capture and an explicit audio-source setting; `default` follows the current PipeWire/PulseAudio output monitor.
+
 ## Requirements
 
 - [Dank Material Shell](https://github.com/AvengeMedia/DankMaterialShell) >= 1.2.0
 - [gpu-screen-recorder](https://git.dec05eba.com/gpu-screen-recorder/) installed and in your `PATH`
-- A working XDG Desktop Portal for screencasting (required when **Capture source** is set to `portal`)
+- A working XDG Desktop Portal with the ScreenCast interface (required when **Capture source** is set to `portal`)
 
 > **Note:** The [Flatpak version of gpu-screen-recorder](https://flathub.org/en/apps/com.dec05eba.gpu_screen_recorder) is a bundled GUI frontend and is **not supported**. Install the native system package instead.
 
@@ -24,25 +32,17 @@ See the [official installation guide](https://git.dec05eba.com/gpu-screen-record
 
 ### XDG Desktop Portal (for portal capture mode)
 
-If screen recording fails with a portal error, install and configure a portal backend:
+If portal capture is unavailable, make sure the backend appropriate to your compositor is installed and active. The plugin checks for the `org.freedesktop.portal.ScreenCast` interface before opening the selector.
 
 ```bash
-# Arch
-sudo pacman -S xdg-desktop-portal-gnome
+# Inspect the active portal backend
+systemctl --user status xdg-desktop-portal
+gdbus introspect --session \
+  --dest org.freedesktop.portal.Desktop \
+  --object-path /org/freedesktop/portal/desktop
 ```
 
-Create or edit `~/.config/xdg-desktop-portal/portals.conf`:
-
-```ini
-[preferred]
-default=gnome;gtk
-```
-
-Then restart the portal services:
-
-```bash
-systemctl --user restart xdg-desktop-portal xdg-desktop-portal-gnome
-```
+If the ScreenCast interface is missing, install/configure the portal backend for your desktop or compositor, then restart the portal user services.
 
 ## Installation
 
@@ -52,10 +52,15 @@ git clone https://github.com/arqueon/dms-screen-recorder
 ln -sf "$(pwd)/dms-screen-recorder" ~/.config/DankMaterialShell/plugins/screenRecorder
 
 # Reload
-dms ipc call plugins reload screenRecorder
+dms ipc plugin-scan reload screenRecorder
 ```
 
-Then go to **DMS Settings → Plugins** and enable the plugin on the bar.
+Then go to **DMS Settings → Plugins** and enable the plugin on the bar. On current DMS versions, rescan/reload it with:
+
+```bash
+dms ipc plugin-scan rescan screenRecorder
+dms ipc plugin-scan reload screenRecorder
+```
 
 ## Usage
 
@@ -116,8 +121,9 @@ Open **DMS Settings → Plugins → Screen Recorder**:
 | **Frames per second** | Recording framerate | 60 |
 | **Video quality** | h264 encoding preset | Very high |
 | **Record audio** | Capture system audio output | On |
+| **Audio source** | `default` follows the current output monitor; accepts an entry from `gpu-screen-recorder --list-audio-devices` | `default` |
 | **Record cursor** | Include mouse pointer | On |
-| **Capture source** | `portal` = choose window/screen on start; `screen` = first monitor | portal |
+| **Capture source** | `portal` = choose window/screen on start; `screen` = all screens; `focused` = focused window | portal |
 | **Recordings folder** | Output directory (empty = `~/Videos/Screencasting`) | — |
 | **Post-record command** | Command to run after recording finishes. Use `$1` to reference the file path. | — |
 
@@ -135,14 +141,16 @@ The file path is available as `$1` and is fully expanded (e.g. `~/Videos/Screenc
 
 ## How stopping works
 
-The plugin sends `SIGINT` to `gpu-screen-recorder` so it finalises and saves the MP4 correctly, followed by `SIGKILL` to close any lingering portal window. Do not force-kill the process with `SIGKILL` directly or the file will be incomplete.
+The plugin keeps ownership of its own recorder process and sends it `SIGINT`, allowing the MP4 to finalize. It waits ten seconds before a controlled `SIGTERM` fallback and only force-stops as a final fallback five seconds later. It never searches for or terminates other `gpu-screen-recorder` processes.
+
+The “saved successfully” notification and `postRecordCommand` run only after the recorder exits successfully and the output file exists with content. Failures include the recorder's diagnostic output, which is especially useful for portal/backend problems.
 
 ## Development
 
 ```bash
 ln -sf "$(pwd)" ~/.config/DankMaterialShell/plugins/screenRecorder
-dms ipc call plugins reload screenRecorder
-dms ipc call plugins list
+dms ipc plugin-scan reload screenRecorder
+dms ipc plugin-scan list
 ```
 
 ## License
