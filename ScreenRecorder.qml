@@ -12,6 +12,15 @@ PluginComponent {
 
     property bool _pendingStop: false
 
+    ccWidgetIcon: recordState === "idle" ? "videocam" : (recordState === "paused" ? "play_circle" : "stop_circle")
+    ccWidgetPrimaryText: "Screen Recorder"
+    ccWidgetSecondaryText: {
+        if (recordState === "idle") return "Ready"
+        const status = recordState === "paused" ? "Paused" : "Recording"
+        return status + " " + _formatTime(recordTimerSeconds)
+    }
+    ccWidgetIsActive: recordState !== "idle"
+
     function _formatTime(totalSeconds) {
         var m = Math.floor(totalSeconds / 60)
         var s = totalSeconds % 60
@@ -25,6 +34,8 @@ PluginComponent {
     function startRecording() { callRecorder("startRecording") }
     function stopRecording() { callRecorder("stopRecording") }
     function togglePause() { callRecorder("togglePause") }
+
+    onCcWidgetToggled: callRecorder("toggleRecording")
 
     PluginGlobalVar {
         id: recordStateGlobal
