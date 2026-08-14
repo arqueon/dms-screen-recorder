@@ -10,6 +10,7 @@ Plugin for **Dank Material Shell (DMS)** that wraps `gpu-screen-recorder` in a Q
 - **Quick switching**: scroll the mouse wheel over the bar pill (while idle) to cycle audio modes, or bind `cycleAudioMode` / `setAudioMode <mode>` IPC commands to keyboard shortcuts. The pill shows the active mode next to the camera icon.
 - **Device overrides**: pick a specific monitor or microphone; empty defaults (`default_output` / `default_input`) follow the active devices, even if you switch outputs mid-recording.
 - Legacy `Record audio` / `Audio source` settings migrate automatically.
+- **Control Center widget** ([#16](https://github.com/arqueon/dms-screen-recorder/pull/16), thanks [@AshotN](https://github.com/AshotN)): toggle recording from the DMS Control Center, with live status and elapsed time.
 
 ## What's new in v1.4.0
 
@@ -81,6 +82,10 @@ dms ipc plugin-scan reload screenRecorder
 | Scroll wheel (while idle) | Cycle audio mode (no audio → system → mic → mixed → separate tracks) |
 
 When you click to stop, the pill turns orange and shows **Stop?** for 3 seconds. Click again to confirm, or do nothing to cancel and keep recording. This prevents accidentally stopping a recording with a misclick.
+
+### Control Center
+
+The plugin also appears as a Control Center toggle: it shows the recorder status (**Ready**, **Recording m:ss**, **Paused m:ss**) and toggles recording on click. Add it from **DMS Settings → Control Center**.
 
 ### IPC commands (keybinds)
 
