@@ -4,6 +4,13 @@ Plugin for **Dank Material Shell (DMS)** that wraps `gpu-screen-recorder` in a Q
 
 ![Plugin screenshot](assets/screenshot.png)
 
+## What's new in v1.5.0
+
+- **Audio modes**: record system audio, microphone, both mixed into one track, both as **separate tracks** in the same file (ideal for tutorials — adjust or mute either track later in an editor), or no audio.
+- **Quick switching**: scroll the mouse wheel over the bar pill (while idle) to cycle audio modes, or bind `cycleAudioMode` / `setAudioMode <mode>` IPC commands to keyboard shortcuts. The pill shows the active mode next to the camera icon.
+- **Device overrides**: pick a specific monitor or microphone; empty defaults (`default_output` / `default_input`) follow the active devices, even if you switch outputs mid-recording.
+- Legacy `Record audio` / `Audio source` settings migrate automatically.
+
 ## What's new in v1.4.0
 
 - Uses DMS's supported composite layout: an always-on daemon owns the recorder while DankBar widgets share its state over IPC.
@@ -71,6 +78,7 @@ dms ipc plugin-scan reload screenRecorder
 | Left click | Start recording |
 | Left click (while recording) | Show **Stop?** confirmation — click again to stop and save |
 | Right click or Middle click | Pause / Resume |
+| Scroll wheel (while idle) | Cycle audio mode (no audio → system → mic → mixed → separate tracks) |
 
 When you click to stop, the pill turns orange and shows **Stop?** for 3 seconds. Click again to confirm, or do nothing to cancel and keep recording. This prevents accidentally stopping a recording with a misclick.
 
@@ -83,7 +91,12 @@ dms ipc call screenRecorder toggleRecording   # start or stop
 dms ipc call screenRecorder startRecording
 dms ipc call screenRecorder stopRecording
 dms ipc call screenRecorder togglePause       # pause or resume
+dms ipc call screenRecorder cycleAudioMode    # next audio mode
+dms ipc call screenRecorder setAudioMode both_tracks   # none|system|mic|both_merged|both_tracks
+dms ipc call screenRecorder getAudioMode
 ```
+
+Audio mode changes while recording apply to the **next** recording.
 
 > **Note:** IPC commands bypass the 3-second stop confirmation. `toggleRecording` stops immediately when a recording is active.
 
@@ -120,12 +133,27 @@ Open **DMS Settings → Plugins → Screen Recorder**:
 |--------|-------------|---------|
 | **Frames per second** | Recording framerate | 60 |
 | **Video quality** | h264 encoding preset | Very high |
-| **Record audio** | Capture system audio output | On |
-| **Audio source** | `default` follows the current output monitor; accepts an entry from `gpu-screen-recorder --list-audio-devices` | `default` |
+| **Audio** | What to record: no audio, system audio, microphone, both mixed, or both as separate tracks | System audio |
+| **System audio device** | Empty = `default_output` (follows the active output). Accepts an entry from `gpu-screen-recorder --list-audio-devices` | — |
+| **Microphone device** | Empty = `default_input` (follows the active input). Accepts an entry from `gpu-screen-recorder --list-audio-devices` | — |
 | **Record cursor** | Include mouse pointer | On |
 | **Capture source** | `portal` = choose window/screen on start; `screen` = all screens; `focused` = focused window | portal |
 | **Recordings folder** | Output directory (empty = `~/Videos/Screencasting`) | — |
 | **Post-record command** | Command to run after recording finishes. Use `$1` to reference the file path. | — |
+
+### Audio modes explained
+
+- **System audio** — desktop sound only: what you hear (videos, calls, games). Use it to record a Zoom meeting or a playing video.
+- **Microphone** — your voice only: narrated tutorials where desktop sound doesn't matter.
+- **Both, mixed** — one audio track with everything. Smallest and simplest, but the balance is fixed forever.
+- **Both, separate tracks** — the same MP4 carries two independent audio tracks (system on track 1, mic on track 2). Best for tutorials: raise, lower, or mute either track afterwards in any editor (Kdenlive, DaVinci, ffmpeg). Most players play the first track by default; editors see both.
+
+To extract or remix tracks later:
+
+```bash
+ffprobe recording.mp4                                   # inspect tracks
+ffmpeg -i recording.mp4 -map 0:a:1 -c copy mic.opus     # extract mic track
+```
 
 ### Post-record command examples
 

@@ -9,6 +9,7 @@ PluginComponent {
 
     readonly property string recordState: recordStateGlobal.value
     readonly property int recordTimerSeconds: recordTimerGlobal.value
+    readonly property string audioMode: audioModeGlobal.value
 
     property bool _pendingStop: false
 
@@ -20,6 +21,16 @@ PluginComponent {
         return status + " " + _formatTime(recordTimerSeconds)
     }
     ccWidgetIsActive: recordState !== "idle"
+
+    function _audioModeIcon() {
+        switch (audioMode) {
+        case "system": return "volume_up"
+        case "mic": return "mic"
+        case "both_merged": return "graphic_eq"
+        case "both_tracks": return "layers"
+        default: return "volume_off"
+        }
+    }
 
     function _formatTime(totalSeconds) {
         var m = Math.floor(totalSeconds / 60)
@@ -34,6 +45,7 @@ PluginComponent {
     function startRecording() { callRecorder("startRecording") }
     function stopRecording() { callRecorder("stopRecording") }
     function togglePause() { callRecorder("togglePause") }
+    function cycleAudioMode() { callRecorder("cycleAudioMode") }
 
     onCcWidgetToggled: callRecorder("toggleRecording")
 
@@ -41,6 +53,12 @@ PluginComponent {
         id: recordStateGlobal
         varName: "recordState"
         defaultValue: "idle"
+    }
+
+    PluginGlobalVar {
+        id: audioModeGlobal
+        varName: "audioMode"
+        defaultValue: "system"
     }
 
     PluginGlobalVar {
@@ -89,6 +107,9 @@ PluginComponent {
                         root.togglePause()
                     }
                 }
+                onWheel: function(wheel) {
+                    if (root.recordState === "idle") root.cycleAudioMode()
+                }
             }
 
             Row {
@@ -99,6 +120,13 @@ PluginComponent {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
                     color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                DankIcon {
+                    visible: root.recordState === "idle"
+                    name: root._audioModeIcon()
+                    size: Theme.barIconSize(root.barThickness, -6)
+                    color: root.audioMode === "none" ? Theme.surfaceVariantText : Theme.widgetIconColor
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 StyledText {
@@ -139,6 +167,9 @@ PluginComponent {
                         root.togglePause()
                     }
                 }
+                onWheel: function(wheel) {
+                    if (root.recordState === "idle") root.cycleAudioMode()
+                }
             }
 
             Column {
@@ -149,6 +180,13 @@ PluginComponent {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
                     color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+                DankIcon {
+                    visible: root.recordState === "idle"
+                    name: root._audioModeIcon()
+                    size: Theme.barIconSize(root.barThickness, -6)
+                    color: root.audioMode === "none" ? Theme.surfaceVariantText : Theme.widgetIconColor
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
                 StyledText {

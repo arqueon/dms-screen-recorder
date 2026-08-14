@@ -127,32 +127,69 @@ PluginComponent {
         )
     }
 
-    function _resolveAudioAndStart(directory) {
-        if (!_loadSetting("recordAudio", true)) {
-            _launchRecorder(directory, "")
-            return
-        }
+    readonly property var audioModes: ["none", "system", "mic", "both_merged", "both_tracks"]
 
-        const configuredAudio = String(_loadSetting("audioSource", "default") || "default").trim()
-        if (configuredAudio && configuredAudio !== "default") {
-            _launchRecorder(directory, configuredAudio)
-            return
-        }
-
-        Proc.runCommand("screenRecorder.defaultAudio", ["pactl", "get-default-sink"], (stdout, exitCode) => {
-            if (_cancelStart || recordState !== "preparing") return
-            const sink = stdout.trim()
-            if (exitCode !== 0 || !sink) {
-                _setDiagnostic("Could not determine the default PipeWire/PulseAudio output monitor.")
-                _resetRuntimeState()
-                ToastService.showError("Audio source is unavailable", "Disable Record audio or enter a monitor source in the plugin settings.")
-                return
-            }
-            _launchRecorder(directory, sink + ".monitor")
-        })
+    function audioMode() {
+        const mode = String(_loadSetting("audioMode", "") || "").trim()
+        if (audioModes.indexOf(mode) !== -1) return mode
+        // Migrate from the pre-1.5.0 recordAudio toggle
+        return _loadSetting("recordAudio", true) ? "system" : "none"
     }
 
-    function _launchRecorder(directory, audioSource) {
+    function audioModeLabel(mode) {
+        switch (mode) {
+        case "system": return "System audio"
+        case "mic": return "Microphone"
+        case "both_merged": return "System + mic (mixed)"
+        case "both_tracks": return "System + mic (separate tracks)"
+        default: return "No audio"
+        }
+    }
+
+    function setAudioMode(mode) {
+        if (audioModes.indexOf(mode) === -1) return false
+        pluginService?.savePluginData(pluginId, "audioMode", mode)
+        pluginService?.setGlobalVar(pluginId, "audioMode", mode)
+        const suffix = recordState === "idle" ? "" : " — applies to the next recording"
+        ToastService.showInfo("Audio: " + audioModeLabel(mode) + suffix)
+        return true
+    }
+
+    function _systemAudioDevice() {
+        const device = String(_loadSetting("systemAudioDevice", "") || "").trim()
+        if (device) return device
+        // Honor the pre-1.5.0 audioSource setting when it named a specific source
+        const legacy = String(_loadSetting("audioSource", "") || "").trim()
+        if (legacy && legacy !== "default") return legacy
+        return "default_output"
+    }
+
+    function _micDevice() {
+        return String(_loadSetting("micDevice", "") || "").trim() || "default_input"
+    }
+
+    function _resolveAudioAndStart(directory) {
+        const systemDevice = _systemAudioDevice()
+        const micDevice = _micDevice()
+        switch (audioMode()) {
+        case "system":
+            _launchRecorder(directory, ["-a", systemDevice])
+            break
+        case "mic":
+            _launchRecorder(directory, ["-a", micDevice])
+            break
+        case "both_merged":
+            _launchRecorder(directory, ["-a", systemDevice + "|" + micDevice])
+            break
+        case "both_tracks":
+            _launchRecorder(directory, ["-a", systemDevice, "-a", micDevice])
+            break
+        default:
+            _launchRecorder(directory, [])
+        }
+    }
+
+    function _launchRecorder(directory, audioArgs) {
         if (_cancelStart || recordState !== "preparing") return
 
         const now = new Date()
@@ -169,7 +206,8 @@ PluginComponent {
                       "-q", _loadSetting("quality", "very_high") || "very_high",
                       "-cursor", _loadSetting("recordCursor", true) ? "yes" : "no",
                       "-cr", "limited"]
-        if (audioSource) args.push("-ac", "opus", "-a", audioSource)
+        if (audioArgs.length > 0) args.push("-ac", "opus")
+        for (const arg of audioArgs) args.push(arg)
         args.push("-o", outputFile)
 
         _currentOutputFile = outputFile
@@ -256,6 +294,28 @@ PluginComponent {
             root.togglePause()
             return root.recordState === "paused" ? "recording_paused" : "recording_resumed"
         }
+
+        function setAudioMode(mode: string): string {
+            if (!root.setAudioMode(mode)) return "invalid_mode (valid: " + root.audioModes.join(", ") + ")"
+            return "audio_mode_" + mode
+        }
+
+        function cycleAudioMode(): string {
+            const next = root.audioModes[(root.audioModes.indexOf(root.audioMode()) + 1) % root.audioModes.length]
+            root.setAudioMode(next)
+            return "audio_mode_" + next
+        }
+
+        function getAudioMode(): string {
+            return root.audioMode()
+        }
+    }
+
+    Connections {
+        target: root.pluginService
+        function onPluginDataChanged(id) {
+            if (id === root.pluginId) root.pluginService?.setGlobalVar(root.pluginId, "audioMode", root.audioMode())
+        }
     }
 
     Process {
@@ -304,5 +364,6 @@ PluginComponent {
         _setState("idle")
         _setTimer(0)
         _setDiagnostic("")
+        pluginService?.setGlobalVar(pluginId, "audioMode", audioMode())
     }
 }

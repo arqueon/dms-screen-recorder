@@ -45,19 +45,34 @@ PluginSettings {
         defaultValue: "very_high"
     }
 
-    ToggleSetting {
-        settingKey: "recordAudio"
-        label: "Record audio"
-        description: "Capture the configured PipeWire/PulseAudio output in the recording"
-        defaultValue: true
+    SelectionSetting {
+        settingKey: "audioMode"
+        label: "Audio"
+        description: "What to record. Separate tracks keeps system audio and microphone on independent tracks in the same file, so you can adjust or mute either one later in an editor."
+        options: [
+            { label: "No audio", value: "none" },
+            { label: "System audio (desktop sound)", value: "system" },
+            { label: "Microphone", value: "mic" },
+            { label: "System + mic, mixed into one track", value: "both_merged" },
+            { label: "System + mic, separate tracks", value: "both_tracks" }
+        ]
+        defaultValue: "system"
     }
 
     StringSetting {
-        settingKey: "audioSource"
-        label: "Audio source"
-        description: "default = current output monitor. Use gpu-screen-recorder --list-audio-devices to choose another source."
-        placeholder: "default"
-        defaultValue: "default"
+        settingKey: "systemAudioDevice"
+        label: "System audio device"
+        description: "Empty = default_output (follows the current output device). Use gpu-screen-recorder --list-audio-devices for other sources."
+        placeholder: "default_output"
+        defaultValue: ""
+    }
+
+    StringSetting {
+        settingKey: "micDevice"
+        label: "Microphone device"
+        description: "Empty = default_input (follows the current input device). Use gpu-screen-recorder --list-audio-devices for other sources."
+        placeholder: "default_input"
+        defaultValue: ""
     }
 
     ToggleSetting {
@@ -127,7 +142,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• Left click — Start / Stop recording\n• Right click or Middle click — Pause / Resume"
+                text: "• Left click — Start / Stop recording\n• Right click or Middle click — Pause / Resume\n• Scroll wheel (while idle) — Cycle audio mode"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap
@@ -169,7 +184,7 @@ PluginSettings {
             }
 
             StyledText {
-                text: "• dms ipc call screenRecorder toggleRecording\n• dms ipc call screenRecorder startRecording\n• dms ipc call screenRecorder stopRecording\n• dms ipc call screenRecorder togglePause"
+                text: "• dms ipc call screenRecorder toggleRecording\n• dms ipc call screenRecorder startRecording\n• dms ipc call screenRecorder stopRecording\n• dms ipc call screenRecorder togglePause\n• dms ipc call screenRecorder cycleAudioMode\n• dms ipc call screenRecorder setAudioMode both_tracks\n• dms ipc call screenRecorder getAudioMode"
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap
