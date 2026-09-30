@@ -6,6 +6,7 @@ import qs.Modules.Plugins
 
 PluginComponent {
     id: root
+    readonly property int barLabelSize: Theme.barTextSize(barThickness, barConfig ? barConfig.fontScale : undefined, barConfig ? barConfig.maximizeWidgetText : undefined)
 
     readonly property string recordState: recordStateGlobal.value
     readonly property int recordTimerSeconds: recordTimerGlobal.value
@@ -84,7 +85,7 @@ PluginComponent {
     horizontalBarPill: Component {
         Item {
             implicitWidth: pillRow.implicitWidth
-            implicitHeight: pillRow.implicitHeight || 24
+            implicitHeight: pillRow.implicitHeight || root.iconSize
 
             MouseArea {
                 anchors.fill: parent
@@ -114,26 +115,26 @@ PluginComponent {
 
             Row {
                 id: pillRow
-                spacing: Theme.spacingS
+                spacing: Theme.spacingXS
                 anchors.centerIn: parent
                 DankIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
-                    size: Theme.barIconSize(root.barThickness, -2)
+                    size: root.iconSize
                     color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 DankIcon {
                     visible: root.recordState === "idle"
                     name: root._audioModeIcon()
-                    size: Theme.barIconSize(root.barThickness, -6)
+                    size: Math.max(Theme.spacingS, root.iconSize - Theme.spacingXS)
                     color: root.audioMode === "none" ? Theme.surfaceVariantText : Theme.widgetIconColor
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 StyledText {
                     visible: root.recordState !== "idle"
                     text: root._pendingStop ? "Stop?" : root._formatTime(root.recordTimerSeconds)
-                    color: root._pendingStop ? Theme.warning : Theme.surfaceText
-                    font.pixelSize: Theme.fontSizeSmall
+                    color: root._pendingStop ? Theme.warning : Theme.widgetTextColor
+                    font.pixelSize: root.barLabelSize
                     font.weight: Font.Bold
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -143,7 +144,7 @@ PluginComponent {
 
     verticalBarPill: Component {
         Item {
-            width: parent.width || 24
+            width: parent.width || root.iconSize
             implicitHeight: pillCol.height
 
             MouseArea {
@@ -178,22 +179,22 @@ PluginComponent {
                 anchors.horizontalCenter: parent.horizontalCenter
                 DankIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
-                    size: Theme.barIconSize(root.barThickness, -2)
+                    size: root.iconSize
                     color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
                 DankIcon {
                     visible: root.recordState === "idle"
                     name: root._audioModeIcon()
-                    size: Theme.barIconSize(root.barThickness, -6)
+                    size: Math.max(Theme.spacingS, root.iconSize - Theme.spacingXS)
                     color: root.audioMode === "none" ? Theme.surfaceVariantText : Theme.widgetIconColor
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
                 StyledText {
                     visible: root.recordState !== "idle"
                     text: root._pendingStop ? "Stop?" : root._formatTime(root.recordTimerSeconds)
-                    color: root._pendingStop ? Theme.warning : Theme.surfaceText
-                    font.pixelSize: Theme.fontSizeSmall
+                    color: root._pendingStop ? Theme.warning : Theme.widgetTextColor
+                    font.pixelSize: root.barLabelSize
                     font.weight: Font.Bold
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
