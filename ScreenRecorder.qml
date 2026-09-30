@@ -119,7 +119,7 @@ PluginComponent {
                 DankIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
-                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
+                    color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 DankIcon {
@@ -132,7 +132,7 @@ PluginComponent {
                 StyledText {
                     visible: root.recordState !== "idle"
                     text: root._pendingStop ? "Stop?" : root._formatTime(root.recordTimerSeconds)
-                    color: root._pendingStop ? Theme.warningText : Theme.surfaceText
+                    color: root._pendingStop ? Theme.warning : Theme.surfaceText
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Bold
                     anchors.verticalCenter: parent.verticalCenter
@@ -179,7 +179,7 @@ PluginComponent {
                 DankIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: Theme.barIconSize(root.barThickness, -2)
-                    color: root._pendingStop ? Theme.warningText : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warningText : Theme.errorText))
+                    color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
                 DankIcon {
@@ -192,8 +192,8 @@ PluginComponent {
                 StyledText {
                     visible: root.recordState !== "idle"
                     text: root._pendingStop ? "Stop?" : root._formatTime(root.recordTimerSeconds)
-                    color: root._pendingStop ? Theme.warningText : Theme.surfaceText
-                    font.pixelSize: 10
+                    color: root._pendingStop ? Theme.warning : Theme.surfaceText
+                    font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Bold
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
