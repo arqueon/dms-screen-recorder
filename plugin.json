@@ -2,7 +2,7 @@
 	"id": "screenRecorder",
 	"name": "Screen Recorder",
 	"description": "Start, stop, and configure screen captures with gpu-screen-recorder on any Wayland compositor",
-	"version": "1.5.3",
+	"version": "1.5.4",
 	"author": "arqueon",
 	"icon": "videocam",
 	"type": "composite",
@@ -15,5 +15,5 @@
 	"capabilities": ["daemon", "dankbar-widget", "control-center", "ipc"],
 	"dependencies": ["gpu-screen-recorder"],
 	"permissions": ["settings_read", "settings_write", "process"],
-	"requires_dms": ">=1.2.0"
+	"requires_dms": ">=2.0.0"
 }

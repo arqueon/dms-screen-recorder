@@ -1,7 +1,7 @@
 import QtQuick
 import qs.Common
+import qs.DCommon.Widgets
 import qs.Modules.Plugins
-import qs.Widgets
 
 PluginSettings {
     id: root
@@ -125,7 +125,7 @@ PluginSettings {
             Row {
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "mouse"
                     size: Theme.iconSize
                     color: Theme.primary
@@ -167,7 +167,7 @@ PluginSettings {
             Row {
                 spacing: Theme.spacingM
 
-                DankIcon {
+                DIcon {
                     name: "terminal"
                     size: Theme.iconSize
                     color: Theme.primary

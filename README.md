@@ -22,7 +22,7 @@ Plugin for **Dank Material Shell (DMS)** that wraps `gpu-screen-recorder` in a Q
 
 ## Requirements
 
-- [Dank Material Shell](https://github.com/AvengeMedia/DankMaterialShell) >= 1.2.0
+- [Dux Shell (DankMaterialShell)](https://github.com/AvengeMedia/DankMaterialShell) >= 2.0.0
 - [gpu-screen-recorder](https://git.dec05eba.com/gpu-screen-recorder/) installed and in your `PATH`
 - A working XDG Desktop Portal with the ScreenCast interface (required when **Capture source** is set to `portal`)
 

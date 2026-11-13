@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Common
-import qs.Widgets
+import qs.DCommon.Widgets
 import qs.Modules.Plugins
 
 PluginComponent {
@@ -117,13 +117,13 @@ PluginComponent {
                 id: pillRow
                 spacing: Theme.spacingXS
                 anchors.centerIn: parent
-                DankIcon {
+                DIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: root.iconSize
                     color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.verticalCenter: parent.verticalCenter
                 }
-                DankIcon {
+                DIcon {
                     visible: root.recordState === "idle"
                     name: root._audioModeIcon()
                     size: Math.max(Theme.spacingS, root.iconSize - Theme.spacingXS)
@@ -177,13 +177,13 @@ PluginComponent {
                 id: pillCol
                 spacing: Theme.spacingXS
                 anchors.horizontalCenter: parent.horizontalCenter
-                DankIcon {
+                DIcon {
                     name: root._pendingStop ? "stop_circle" : (root.recordState === "idle" ? "videocam" : (root.recordState === "paused" ? "play_circle" : "stop_circle"))
                     size: root.iconSize
                     color: root._pendingStop ? Theme.warning : (root.recordState === "idle" ? Theme.widgetIconColor : (root.recordState === "paused" ? Theme.warning : Theme.error))
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
-                DankIcon {
+                DIcon {
                     visible: root.recordState === "idle"
                     name: root._audioModeIcon()
                     size: Math.max(Theme.spacingS, root.iconSize - Theme.spacingXS)
