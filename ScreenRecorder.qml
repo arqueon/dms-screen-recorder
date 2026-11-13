@@ -3,6 +3,7 @@ import Quickshell
 import qs.Common
 import qs.DCommon.Widgets
 import qs.Modules.Plugins
+import qs.Widgets
 
 PluginComponent {
     id: root
